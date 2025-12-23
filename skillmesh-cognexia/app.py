@@ -112,5 +112,11 @@ def dashboard():
 
 
 if __name__ == "__main__":
-    print("🔥 SkillMesh running with Google Sheets DB")
-    app.run(debug=True)
+    import os
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000)),
+        debug=True
+    )
+
+
