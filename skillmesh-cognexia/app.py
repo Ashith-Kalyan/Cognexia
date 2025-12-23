@@ -1,20 +1,26 @@
 from flask import Flask, render_template, request, redirect
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-from ai_engine import match_users
-import gspread
 from google.oauth2.service_account import Credentials
+from ai_engine import match_users
+import json
 import os
+
 app = Flask(__name__)
 
 # ---------------- GOOGLE SHEETS SETUP ----------------
+
 SCOPES = [
-    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
 ]
 
-creds = Credentials.from_service_account_file(
-    "credentials/service_account.json",
+# Load credentials from ENV (Render-safe)
+service_account_info = json.loads(
+    os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+)
+
+creds = Credentials.from_service_account_info(
+    service_account_info,
     scopes=SCOPES
 )
 
@@ -23,7 +29,6 @@ client = gspread.authorize(creds)
 sheet = client.open("SkillMeshDB")
 users_ws = sheet.worksheet("users")
 skills_ws = sheet.worksheet("skills")
-
 
 # ---------------- ROUTES ----------------
 
@@ -43,20 +48,16 @@ def profile():
         skills = request.form.getlist("skill")
         levels = request.form.getlist("level")
 
-        print("DEBUG skills:", skills)
-        print("DEBUG levels:", levels)
-
-        # Add user
+        # Save user
         users_ws.append_row([name, bio, email, phone])
 
-        # Add skills (only if checkbox selected)
+        # Save skills
         for skill, level in zip(skills, levels):
             skills_ws.append_row([name, skill, level])
 
         return redirect("/")
 
     return render_template("profile.html")
-
 
 
 @app.route("/request", methods=["GET", "POST"])
@@ -102,7 +103,9 @@ def dashboard():
     for row in skills_data:
         skill_count[row["skill"]] = skill_count.get(row["skill"], 0) + 1
 
-    top_skills = dict(sorted(skill_count.items(), key=lambda x: x[1], reverse=True)[:5])
+    top_skills = dict(
+        sorted(skill_count.items(), key=lambda x: x[1], reverse=True)[:5]
+    )
 
     return render_template(
         "dashboard.html",
@@ -112,11 +115,8 @@ def dashboard():
 
 
 if __name__ == "__main__":
-    import os
     app.run(
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 5000)),
         debug=True
     )
-
-
